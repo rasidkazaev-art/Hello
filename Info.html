@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Что сайт узнаёт о вас</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --line:#262d38; --tx:#e6edf3;
+    --dim:#8b949e; --acc:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px 16px 64px; background:var(--bg); color:var(--tx);
+    font:15px/1.5 "Segoe UI",Roboto,Arial,sans-serif;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:var(--dim);margin:0 0 22px}
+  .fp{
+    background:linear-gradient(135deg,#1f6feb22,#58a6ff11);
+    border:1px solid #1f6feb66;border-radius:12px;padding:16px 18px;margin-bottom:22px;
+  }
+  .fp .lbl{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  .fp .val{font:600 22px/1.3 Consolas,monospace;color:var(--acc);word-break:break-all;margin-top:4px}
+  .fp .hint{color:var(--dim);font-size:13px;margin-top:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card h2{
+    margin:0;padding:11px 14px;font-size:14px;letter-spacing:.3px;
+    background:#1c2230;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .ico{font-size:16px}
+  .card h2 .n{margin-left:auto;color:var(--dim);font-weight:400;font-size:12px}
+  dl{margin:0;padding:6px 14px 12px}
+  .row{display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed #21262d}
+  .row:last-child{border-bottom:0}
+  .row dt{color:var(--dim);flex:0 0 44%;font-size:13.5px}
+  .row dd{margin:0;flex:1;font-family:Consolas,"Courier New",monospace;font-size:13px;word-break:break-word}
+  .yes{color:var(--ok)} .no{color:var(--bad)} .maybe{color:var(--warn)}
+  details{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  summary{cursor:pointer;padding:12px 14px;font-weight:600}
+  pre{margin:0;padding:0 14px 14px;overflow:auto;max-height:420px;font-size:12.5px;color:#79c0ff}
+  button{
+    background:#21262d;color:var(--tx);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;font:inherit;font-size:13.5px;cursor:pointer;
+  }
+  button:hover{background:#30363d;border-color:#3d444d}
+  .note{
+    margin-top:22px;padding:14px 16px;background:#161b22;border:1px solid var(--line);
+    border-left:3px solid var(--warn);border-radius:8px;color:var(--dim);font-size:13.5px;
+  }
+  .note b{color:var(--tx)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Что сайт узнаёт о вас</h1>
+  <p class="sub">Всё ниже собрано автоматически, без единого вопроса и без единого клика. Вы просто открыли страницу.</p>
+
+  <div class="fp" id="ipbox" style="background:linear-gradient(135deg,#3fb95022,#58a6ff11);border-color:#3fb95066">
+    <div class="lbl">Ваш IP-адрес — то, что видит любой сайт</div>
+    <div class="val" id="bigip" style="color:#3fb950">определяю…</div>
+    <div class="hint" id="bigipHint">Опрашиваю 5 независимых сервисов — они не связаны друг с другом.</div>
+  </div>
+
+  <div class="fp">
+    <div class="lbl">Ваш отпечаток браузера</div>
+    <div class="val" id="hash">считаю…</div>
+    <div class="hint" id="hashHint">Стабильный ID: перезайдите в режиме инкогнито, смените шрифты или размер окна — и он изменится.</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div style="margin-top:18px">
+    <button id="copy">📋 Скопировать всё как JSON</button>
+  </div>
+
+  <details>
+    <summary>Сырые данные (JSON)</summary>
+    <pre id="json">…</pre>
+  </details>
+
+  <div class="note">
+    <b>Про VPN — честно.</b> Если VPN настроен правильно (весь трафик завёрнут в туннель,
+    включён kill switch), то сайт <b>физически не может</b> узнать ваш реальный IP.
+    Пакеты от вас уходят уже с адресом VPN-сервера — браузер сам не знает, какой у вас настоящий адрес.
+    Никакой сайт это не обойдёт, потому что обходить нечего: информация до него просто не доходит.
+    <br><br>
+    Утечка случается только при <b>неправильной настройке</b> — когда WebRTC отправляет UDP напрямую,
+    мимо туннеля. Именно это ловит карточка «Утечка реального IP»: STUN-сервер отвечает вашим настоящим
+    адресом, а обычный запрос — адресом VPN. Разные адреса = дыра.
+    <br><br>
+    <b>Чего сайт НЕ узнает без разрешения:</b> файлы, камера и микрофон, GPS, буфер обмена, пароли,
+    история других сайтов. Браузер тут показывает окно «Разрешить?».
+    Сайт не знает ваше <i>имя</i>, но точно знает вашу <i>технику</i> — по ней вас узнают повторно даже без cookie.
+    <br><br>
+    <b>Про телефон, оператора и номер.</b> Оператора связи сайт определяет косвенно — по тому,
+    чья это сеть: на мобильном интернете это ваш сотовый оператор, на Wi-Fi — домашний провайдер.
+    Это работает, но это <i>догадка по IP</i>, а не чтение SIM.
+    <br><br>
+    <b>Номер телефона, ICCID, IMSI и паспорт владельца сайт не узнает никогда.</b>
+    Не потому, что «запрещено», а потому что в браузере <b>нет ни одного API к SIM-карте</b>.
+    Никакой странице номер физически не передаётся — даже с окном «Разрешить?»,
+    такого разрешения в браузерах просто не существует.
+    Даже обычные мобильные приложения на iPhone не могут прочитать номер, а на Android — только
+    приложение оператора с особыми правами. Веб-страница — тем более.
+    <br><br>
+    Данные владельца по номеру выдают только операторы связи по официальному запросу
+    (это закрытая система HLR у самих операторов), доступ к ней есть у полиции и оператора,
+    и никакой сайт к ней не подключится.
+    <br><br>
+    <b>Почему нельзя собрать «всё, что в устройстве».</b> Браузер запускает страницу в песочнице —
+    изолированной коробке. Страница не видит ни файлов, ни приложений, ни аккаунтов, ни истории.
+    Не потому, что «не дали прав», а потому что этих данных внутри песочницы просто нет.
+    Единственный способ что-то получить — чтобы вы сами открыли файл через кнопку «выбрать файл»;
+    тогда вы видите выбор вручную, и это ваше решение, а не тихая утечка.
+    <br><br>
+    <b>Про соцсети.</b> Определить, в каких соцсетях вы залогинены, сайт не может: чужие cookie
+    недоступны, а все браузеры уже блокируют сторонние cookie по умолчанию.
+    Единственное, что реально утекает — заголовок Referer, если вы перешли сюда по ссылке.
+    Он виден в карточке «О посещении»: если там пусто — вы пришли напрямую.
+    <br><br>
+    Запросы наружу: 5 сервисов определения IP (Cloudflare, ipwho.is, ipinfo.io, ipapi.co, ipify)
+    и 2 STUN-сервера для проверки WebRTC. Всё это видят только вы — страница ничего никуда не пересылает.
+  </div>
+</div>
+
+<!-- Данные истории. Файл создаёт скрипт history.py.
+     Если файла нет — страница просто покажет подсказку, ничего не сломается. -->
+<script src="history_data.js"></script>
+
+<script>
+"use strict";
+
+/* ─────────── Сбор данных ─────────── */
+
+const S = []; // секции: {title, ico, rows:[[label, value, cls]]}
+
+// объявляем сразу: ниже его используют несколько блоков
+const ua = navigator.userAgent;
+
+function sec(title, ico){
+  const s = {title, ico, rows:[]};
+  S.push(s);
+  return s;
+}
+// value: строка, число, boolean, массив, или null (неизвестно)
+function row(s, label, value, cls){
+  let text, klass = cls || "";
+  if (value === undefined || value === null || value === ""){
+    text = "—";
+  } else if (typeof value === "boolean"){
+    text = value ? "да" : "нет";
+    klass = klass || (value ? "yes" : "no");
+  } else if (Array.isArray(value)){
+    text = value.length ? value.join(", ") : "нет";
+  } else {
+    text = String(value);
+  }
+  s.rows.push([label, text, klass]);
+}
+
+/* ── 1. IP ── */
+const net  = sec("Ваш IP-адрес", "📍");
+const leak = sec("Утечка реального IP (WebRTC)", "🚨");
+const vpn  = sec("Признаки VPN / прокси", "🕵️");
+const mob  = sec("Телефон и оператор", "📱");
+const sim  = sec("Номер и SIM-карта", "🚫");
+
+/* ── Мобильное устройство ── */
+const chMobile  = navigator.userAgentData ? navigator.userAgentData.mobile : null;
+const uaMobile  = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Windows Phone/i.test(ua);
+const isMobile  = chMobile !== null ? chMobile : uaMobile;
+
+let devKind = "компьютер";
+if (/iPad|Tablet/i.test(ua))          devKind = "планшет";
+else if (/iPhone|iPod/i.test(ua))     devKind = "iPhone";
+else if (/Android/i.test(ua))         devKind = /Mobile/i.test(ua) ? "телефон Android" : "планшет Android";
+
+row(mob, "Открыто с телефона", isMobile, isMobile ? "yes" : "no");
+row(mob, "Тип устройства", devKind);
+row(mob, "Тач-экран", navigator.maxTouchPoints > 0 ? "да, точек: " + navigator.maxTouchPoints : "нет");
+
+const androidVer = (ua.match(/Android ([\d.]+)/) || [])[1];
+const iosVer = (ua.match(/OS (\d+[_.]\d+)/) || [])[1];
+if (androidVer) row(mob, "Версия Android", androidVer);
+if (iosVer)     row(mob, "Версия iOS", iosVer.replace(/_/g, "."));
+if (/Android/i.test(ua) && !androidVer) row(mob, "Оболочка", "Android (версия скрыта)");
+
+// оператор и модель — заполнятся ниже, когда придут данные
+row(mob, "Модель устройства", "определяю…");
+row(mob, "Оператор связи", "определяю…");
+
+/* ── Честный предел: SIM ── */
+row(sim, "Номер телефона", "недоступен", "no");
+row(sim, "ICCID (номер SIM)", "недоступен", "no");
+row(sim, "IMSI (код абонента)", "недоступен", "no");
+row(sim, "Оператор из самой SIM", "недоступен", "no");
+row(sim, "Баланс, тариф, паспорт владельца", "недоступно", "no");
+row(sim, "Почему", "у браузера нет ни одного API к SIM-карте", "no");
+
+/* ── Соцсети и аккаунты ── */
+const soc = sec("Аккаунты и соцсети", "👤");
+row(soc, "Список ваших соцсетей", "недоступен", "no");
+row(soc, "Логины, имена, аватарки", "недоступны", "no");
+row(soc, "Список установленных приложений", "недоступен", "no");
+row(soc, "Список ваших файлов", "недоступен", "no");
+row(soc, "Ваши фото и галерея", "недоступны", "no");
+row(soc, "История браузера и закладки", "недоступны", "no");
+row(soc, "Пароли из хранилища", "недоступны", "no");
+row(soc, "Почему", "браузер — песочница: страница видит только то, что вы ей сами отдали", "no");
+
+/* ── История браузера ── */
+const hist = sec("История браузера", "🕘");
+
+function sparkline(values){
+  const blocks = "▁▂▃▄▅▆▇█";
+  const top = Math.max.apply(null, values) || 1;
+  return values.map(v => blocks[Math.min(7, Math.round(v / top * 7))]).join("");
+}
+
+(function(){
+  const D = window.HISTORY_DATA;
+
+  if (!D){
+    row(hist, "Данных пока нет", "запустите history.py — он создаст history_data.js", "maybe");
+    row(hist, "Почему так", "страница не умеет читать файлы на диске сама: " +
+        "нужен скрипт, у которого есть доступ", "no");
+    row(hist, "Что это даёт", "после запуска здесь появится ваша история: " +
+        "топ сайтов, активность по часам, последние заходы", "");
+    return;
+  }
+
+  row(hist, "Профиль", D.browser + " — «" + D.profile + "»");
+  row(hist, "Данные собраны", D.generated);
+  row(hist, "Адресов в истории", D.totalUrls, "yes");
+  row(hist, "Всего посещений", D.totalVisits, "yes");
+  row(hist, "Самое раннее", D.first);
+  row(hist, "Самое свежее", D.last);
+
+  if (D.byHour && D.byHour.length === 24){
+    const top = Math.max.apply(null, D.byHour);
+    const hour = D.byHour.indexOf(top);
+    row(hist, "Активность по часам", sparkline(D.byHour) + "   (0ч → 23ч)");
+    row(hist, "Самый активный час", hour + ":00 — " + top + " заходов", "maybe");
+  }
+
+  if (D.topDomains && D.topDomains.length){
+    row(hist, "Сайтов разных", D.topDomains.length + "+");
+    for (let i = 0; i < D.topDomains.length; i++){
+      const d = D.topDomains[i];
+      row(hist, (i + 1) + ". " + d.host, d.visits + " заходов");
+    }
+  }
+
+  if (D.top && D.top.length){
+    for (let i = 0; i < D.top.length; i++){
+      const s = D.top[i];
+      row(hist, "Часто " + (i + 1), s.title + " — " + s.visits + " заходов");
+    }
+  }
+
+  if (D.recent && D.recent.length){
+    for (let i = 0; i < D.recent.length; i++){
+      const s = D.recent[i];
+      row(hist, "Недавно " + (i + 1), s.date + " — " + s.title);
+    }
+  }
+})();
+
+/* Общее состояние: два независимых блока сходятся здесь */
+const STATE = { http:null, httpTZ:null, srflx:[], mdns:false, warp:null, done:0 };
+
+function unlock(){
+  STATE.done++;
+  if (STATE.done < 2) return;   // ждём и IP-опрос, и WebRTC
+  verdict();
+  fillOperator();
+  render();
+}
+
+// Оператор связи определяется по тому, ЧЬЯ это сеть. На мобильном интернете
+// это ваш сотовый оператор, на Wi-Fi — провайдер домашнего интернета.
+const OPERATORS = [
+  [/mts|мтс|mobile tele ?systems|mobilesystem/i,        "МТС"],
+  [/beeline|билайн|vimpel|вымпел/i,                     "Билайн"],
+  [/megafon|мегафон|scartel|скартел/i,                  "МегаФон"],
+  [/tele2|т2|t2 ?mobile/i,                              "Т2 (Tele2)"],
+  [/yota|йота/i,                                        "Yota"],
+  [/rostelecom|ростелеком/i,                            "Ростелеком"],
+  [/motiv|мотив/i,                                      "Мотив"],
+  [/sberbank|сбербанк|sber ?mobile/i,                   "СберМобайл"],
+  [/tinkoff|тинькофф/i,                                 "Т-Мобайл"],
+  [/vodafone|водафон/i,                                 "Vodafone"],
+  [/kyivstar|киевстар/i,                                "Kyivstar"],
+  [/lifecell|лайфселл/i,                                "lifecell"],
+  [/\bkcell\b/i,                                        "Kcell"],
+  [/turkcell|туркселл/i,                                "Turkcell"],
+  [/deutsche telekom|telekom|\bt-?mobile\b/i,           "T-Mobile / Deutsche Telekom"],
+  [/orange/i,                                           "Orange"],
+  [/telefonica|telefónica|\bo2\b/i,                     "Telefónica / O2"]
+];
+
+function fillOperator(){
+  const text = [STATE.isp, STATE.org].filter(Boolean).join(" ");
+  if (!text){
+    setRow(mob, "Оператор связи", "неизвестно — IP не определён");
+    return;
+  }
+  let name = null;
+  for (const [re, label] of OPERATORS){ if (re.test(text)){ name = label; break; } }
+
+  if (name){
+    setRow(mob, "Оператор связи", name, "yes");
+  } else {
+    setRow(mob, "Оператор связи", "не опознан (сеть: " + text + ")");
+  }
+
+  // на мобильном интернете сеть принадлежит оператору, на Wi-Fi — провайдеру
+  const netType = (navigator.connection && navigator.connection.type) || null;
+  if (netType === "wifi")
+    row(mob, "Сеть", "Wi-Fi — оператор определён по домашнему провайдеру, а не по SIM");
+  else if (netType === "cellular")
+    row(mob, "Сеть", "мобильный интернет — оператор определён верно");
+
+  const eff = navigator.connection && navigator.connection.effectiveType;
+  if (eff) row(mob, "Качество канала", eff.toUpperCase());
+}
+
+function verdict(){
+  const http = STATE.http;
+  const real = STATE.srflx.filter(x => x !== http);
+
+  if (real.length){
+    row(vpn, "Вердикт", "РЕАЛЬНЫЙ IP ВИДЕН: " + real.join(", "), "no");
+    row(vpn, "Что произошло", "WebRTC ушёл по UDP мимо туннеля — так течёт VPN без kill switch");
+  } else if (STATE.srflx.length){
+    row(vpn, "Вердикт", "утечки нет: STUN видит тот же адрес, что и сервер", "yes");
+  } else {
+    row(vpn, "Вердикт", "WebRTC не выдал адресов — браузер их скрыл", "maybe");
+  }
+
+  const btz = opts.timeZone;
+  row(vpn, "Часовой пояс браузера", btz);
+  if (STATE.httpTZ){
+    const same = STATE.httpTZ === btz;
+    row(vpn, "Часовой пояс IP", STATE.httpTZ, same ? "yes" : "no");
+    if (!same)
+      row(vpn, "Расхождение", "IP и компьютер в разных поясах — типичный след VPN или прокси", "maybe");
+  }
+  if (STATE.warp)
+    row(vpn, "Cloudflare WARP", STATE.warp === "on" ? "включён" : "выключен",
+        STATE.warp === "on" ? "maybe" : "yes");
+}
+
+/* ── 2. Система и браузер ── */
+const sys = sec("Система и браузер", "💻");
+row(sys, "User-Agent", ua);
+row(sys, "Платформа", navigator.platform);
+row(sys, "ОС (из UA-CH)", navigator.userAgentData
+  ? navigator.userAgentData.platform : null);
+row(sys, "Мобильный", navigator.userAgentData
+  ? navigator.userAgentData.mobile : /Mobi|Android/i.test(ua));
+row(sys, "Браузер", detectBrowser());
+row(sys, "Версия", detectVersion(ua));
+row(sys, "Языки (по порядку)", navigator.languages && navigator.languages.length
+  ? navigator.languages.join(" → ") : navigator.language);
+row(sys, "Основной язык", navigator.language);
+row(sys, "Движок", detectEngine(ua));
+row(sys, "Разрядность", /\bWOW64\b|\bx64\b|\bWin64\b/.test(ua) ? "64-bit" : "неизвестно");
+row(sys, "Веб-драйвер (бот?)", navigator.webdriver === true);
+row(sys, "Cookies разрешены", navigator.cookieEnabled);
+row(sys, "PDF-просмотрщик", navigator.pdfViewerEnabled);
+row(sys, "Do Not Track", navigator.doNotTrack || "не отправляется");
+row(sys, "Global Privacy Control", navigator.globalPrivacyControl === true);
+
+/* ── 3. Экран ── */
+const scr = sec("Экран и окно", "🖥️");
+row(scr, "Разрешение экрана", screen.width + " × " + screen.height);
+row(scr, "Рабочая область", screen.availWidth + " × " + screen.availHeight);
+row(scr, "Окно браузера", innerWidth + " × " + innerHeight);
+row(scr, "Внешнее окно", outerWidth + " × " + outerHeight);
+if (window.screenX !== undefined) row(scr, "Позиция окна", screenX + ", " + screenY);
+row(scr, "Масштаб (DPR)", devicePixelRatio);
+row(scr, "Глубина цвета", screen.colorDepth + " бит");
+row(scr, "Ориентация", screen.orientation ? screen.orientation.type : null);
+row(scr, "Цветовой охват", matchMedia("(color-gamut: p3)").matches ? "P3 — широкий охват"
+  : matchMedia("(color-gamut: srgb)").matches ? "sRGB" : "узкий");
+row(scr, "HDR", matchMedia("(dynamic-range: high)").matches);
+
+/* ── 4. Железо ── */
+const hw = sec("Железо", "🔧");
+row(hw, "Ядер CPU", navigator.hardwareConcurrency);
+row(hw, "ОЗУ (округл., ГБ)", navigator.deviceMemory);
+row(hw, "Точек касания", navigator.maxTouchPoints);
+row(hw, "Частота экрана", "измеряю…");
+row(hw, "WebGPU", "проверяю…");
+
+/* ── Кодеки и DRM ── */
+const codec = sec("Кодеки и DRM", "🎬");
+const CODECS = [
+  ["H.264", 'video/mp4; codecs="avc1.42E01E"'],
+  ["H.265 / HEVC", 'video/mp4; codecs="hvc1.1.6.L93.B0"'],
+  ["AV1", 'video/mp4; codecs="av01.0.05M.08"'],
+  ["VP9", 'video/webm; codecs="vp9"'],
+  ["VP8", 'video/webm; codecs="vp8"'],
+  ["AAC", 'audio/mp4; codecs="mp4a.40.2"'],
+  ["MP3", 'audio/mpeg'],
+  ["Opus", 'audio/webm; codecs="opus"'],
+  ["FLAC", 'audio/ogg; codecs="flac"']
+];
+(function(){
+  const v = document.createElement("video");
+  const supported = [], missing = [];
+  for (const [name, mime] of CODECS){
+    (v.canPlayType(mime) ? supported : missing).push(name);
+  }
+  row(codec, "Поддерживаются", supported.join(", "));
+  row(codec, "НЕ поддерживаются", missing.length ? missing.join(", ") : "все поддерживаются",
+      missing.length ? "maybe" : "yes");
+  row(codec, "MIME-типов у браузера", navigator.mimeTypes.length);
+  row(codec, "Плагинов", navigator.plugins.length || "0 (устарело во всех браузерах)");
+})();
+row(codec, "Системы DRM", "проверяю…");
+
+/* ── Доступ к железу ── */
+const hwacc = sec("Доступ к железу устройства", "🔌");
+(function(){
+  const probes = [
+    ["USB",            navigator.usb       && navigator.usb.getDevices],
+    ["HID",            navigator.hid       && navigator.hid.getDevices],
+    ["Bluetooth",      navigator.bluetooth && navigator.bluetooth.getDevices],
+    ["Serial (COM)",   navigator.serial    && navigator.serial.getPorts],
+    ["MIDI",           navigator.requestMIDIAccess],
+    ["NFC",            "NDEFReader" in window]
+  ];
+  for (const [name, fn] of probes){
+    if (!fn){ row(hwacc, name, "не поддерживается браузером"); continue; }
+    row(hwacc, name, "есть API, но список пуст без вашего разрешения", "maybe");
+  }
+})();
+
+/* ── 5. Часовой пояс и время ── */
+const tz = sec("Часовой пояс и время", "🕐");
+const opts = Intl.DateTimeFormat().resolvedOptions();
+row(tz, "Часовой пояс", opts.timeZone);
+row(tz, "Смещение от UTC", -new Date().getTimezoneOffset() / 60 + " ч");
+row(tz, "Текущее время ПК", new Date().toLocaleString("ru-RU"));
+row(tz, "Локаль Intl", opts.locale);
+row(tz, "Календарь", opts.calendar);
+row(tz, "Система счисления", opts.numberingSystem);
+
+/* ── 6. Видеокарта / WebGL ── */
+const gpu = sec("Видеокарта (WebGL)", "🎮");
+const glInfo = webglInfo();
+row(gpu, "Производитель GPU", glInfo.vendor);
+row(gpu, "Модель GPU", glInfo.renderer, "maybe");
+row(gpu, "Версия WebGL", glInfo.version);
+row(gpu, "Версия шейдеров", glInfo.shading);
+row(gpu, "Расширений", glInfo.extCount);
+row(gpu, "Макс. текстура", glInfo.maxTexture);
+
+/* ── 7. Отпечатки ── */
+const fpHolder = sec("Цифровые отпечатки", "🧬");
+const canvasHash = {v:"…"};
+row(fpHolder, "Canvas", "считаю…");
+row(fpHolder, "WebGL", "считаю…");
+row(fpHolder, "Аудио", "считаю…");
+row(fpHolder, "Шрифты", "считаю…");
+
+/* ── 8. Шрифты ── */
+const fonts = sec("Установленные шрифты", "🔤");
+row(fonts, "Проверено семейств", "считаю…");
+
+/* ── 9. Хранилища ── */
+const st = sec("Хранилища и кэш", "💾");
+row(st, "localStorage", testLS("localStorage"));
+row(st, "sessionStorage", testLS("sessionStorage"));
+row(st, "IndexedDB", !!window.indexedDB);
+row(st, "Service Worker", "serviceWorker" in navigator);
+row(st, "Квота диска", "считаю…");
+
+/* ── 10. Медиаустройства ── */
+const media = sec("Медиаустройства", "🎧");
+row(media, "Камер", "считаю…");
+row(media, "Микрофонов", "считаю…");
+row(media, "Динамиков", "считаю…");
+
+/* ── 11. Предпочтения и медиа-запросы ── */
+const pref = sec("Предпочтения системы", "🎨");
+const mq = q => matchMedia(q).matches;
+row(pref, "Тёмная тема", mq("(prefers-color-scheme: dark)"));
+row(pref, "Меньше анимации", mq("(prefers-reduced-motion: reduce)"));
+row(pref, "Высокий контраст", mq("(prefers-contrast: more)"));
+row(pref, "Принудительные цвета", mq("(forced-colors: active)"));
+row(pref, "Указатель", mq("(pointer: fine)") ? "мышь" : (mq("(pointer: coarse)") ? "палец" : "нет"));
+row(pref, "Наведение (hover)", mq("(hover: hover)"));
+
+/* ── 12. Сеть: детали соединения ── */
+const conn = sec("Соединение", "📶");
+const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+if (c){
+  row(conn, "Тип канала", c.effectiveType);
+  row(conn, "Скорость (Мбит/с)", c.downlink);
+  row(conn, "Задержка (мс)", c.rtt);
+  row(conn, "Экономия трафика", c.saveData);
+} else {
+  row(conn, "Network Information API", "не поддерживается");
+}
+
+/* ── 13. Батарея ── */
+const bat = sec("Батарея", "🔋");
+row(bat, "Статус", "считаю…");
+
+/* ── 14. Разрешения ── */
+const perm = sec("Разрешения (без запроса)", "🔐");
+
+/* ── 15. Посещение ── */
+const visit = sec("О посещении", "📄");
+row(visit, "Адрес страницы", location.href);
+row(visit, "Откуда пришли", document.referrer || "напрямую (закладка / ввод адреса)");
+row(visit, "Записей в истории вкладки", history.length);
+row(visit, "Время загрузки", "—");
+
+/* ── 16. Голоса синтеза речи ── */
+const sp = sec("Синтез речи (голоса)", "🗣️");
+row(sp, "Голосов установлено", "считаю…");
+
+/* ── 17. Геймпады ── */
+const gp = sec("Джойстики", "🕹️");
+row(gp, "Подключено", "считаю…");
+
+/* ═══════════ Асинхронный сбор ═══════════ */
+
+// ─── IP: опрашиваем 5 независимых сервисов одновременно ───
+
+const IP_SOURCES = [
+  {name:"Cloudflare", url:"https://www.cloudflare.com/cdn-cgi/trace", kind:"cf"},
+  {name:"ipwho.is",   url:"https://ipwho.is/",                 kind:"json"},
+  {name:"ipinfo.io",  url:"https://ipinfo.io/json",            kind:"json"},
+  {name:"ipapi.co",   url:"https://ipapi.co/json/",            kind:"json"},
+  {name:"ipify",      url:"https://api.ipify.org?format=json", kind:"json"}
+];
+
+// приводим ответы разных сервисов к одному виду
+function normalize(kind, text){
+  if (kind === "cf"){
+    const o = {};
+    text.trim().split("\n").forEach(l => {
+      const i = l.indexOf("=");
+      if (i > 0) o[l.slice(0, i)] = l.slice(i + 1);
+    });
+    if (!o.ip) return null;
+    return {ip:o.ip, country:o.loc, warp:o.warp, colo:o.colo};
+  }
+  const d = JSON.parse(text);
+  if (d.success === false || !d.ip) return null;
+  return {
+    ip:     d.ip,
+    city:   d.city || null,
+    region: d.region || d.region_name || null,
+    country:d.country_name || d.country || null,
+    isp:    (d.connection && d.connection.isp) || d.org || d.isp || null,
+    org:    (d.connection && d.connection.org) || d.org || null,
+    asn:    (d.connection && d.connection.asn) || d.asn || null,
+    tz:     (d.timezone && d.timezone.id) || d.timezone || null
+  };
+}
+
+(async function(){
+  const results = await Promise.all(IP_SOURCES.map(async s => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const r = await fetch(s.url, {signal: ctrl.signal, cache: "no-store"});
+      const text = await r.text();
+      clearTimeout(t);
+      const n = normalize(s.kind, text);
+      return n ? Object.assign({name:s.name, ok:true}, n) : {name:s.name, ok:false};
+    } catch(e){
+      clearTimeout(t);
+      return {name:s.name, ok:false};
+    }
+  }));
+
+  const good = results.filter(r => r.ok);
+  for (const r of results){
+    row(net, r.name, r.ok ? r.ip : "не ответил", r.ok ? "yes" : "no");
+  }
+
+  const ips = [...new Set(good.map(r => r.ip))];
+  STATE.http = ips[0] || null;
+
+  const big = document.getElementById("bigip");
+  const hint = document.getElementById("bigipHint");
+  if (ips.length === 1){
+    big.textContent = ips[0];
+    hint.textContent = "Все " + good.length + " сервисов показали один и тот же адрес.";
+  } else if (ips.length > 1){
+    big.textContent = ips.join("  /  ");
+    hint.textContent = "⚠️ Сервисы показали разные адреса — это признак прокси или балансировщика.";
+  } else {
+    big.textContent = "не определён";
+    hint.textContent = "Ни один сервис не ответил: нет сети или стоит блокировщик.";
+  }
+
+  row(net, "Все источники совпали", ips.length === 1 ? "да" : "нет",
+      ips.length === 1 ? "yes" : "maybe");
+
+  // гео берём у того источника, который знает больше всех
+  const best = good.find(r => r.city) || good[0];
+  if (best){
+    const place = [best.city, best.region, best.country].filter(Boolean).join(", ");
+    if (place) row(net, "Город / регион", place, "maybe");
+    if (best.isp){ row(net, "Провайдер", best.isp); STATE.isp = best.isp; }
+    if (best.org){ if (best.org !== best.isp) row(net, "Организация", best.org); STATE.org = best.org; }
+    if (best.asn) row(net, "Номер сети (ASN)", best.asn);
+    if (best.tz){ row(net, "Часовой пояс по IP", best.tz); STATE.httpTZ = best.tz; }
+  }
+
+  const cf = results.find(r => r.name === "Cloudflare" && r.ok);
+  if (cf){
+    if (cf.colo) row(net, "Ближайший узел Cloudflare", cf.colo);
+    if (cf.warp) STATE.warp = cf.warp;
+  }
+
+  row(net, "Протокол", location.protocol);
+  row(net, "Secure context", window.isSecureContext);
+  unlock();
+})();
+
+// ─── WebRTC: проверка, течёт ли реальный IP мимо туннеля ───
+(async function(){
+  if (!window.RTCPeerConnection){
+    row(leak, "WebRTC", "не поддерживается браузером");
+    unlock();
+    return;
+  }
+  const found = {srflx:new Set(), host:new Set(), relay:new Set()};
+  let pc;
+
+  try {
+    pc = new RTCPeerConnection({iceServers:[
+      {urls:["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"]}
+    ]});
+  } catch(e){
+    row(leak, "WebRTC", "заблокирован настройками");
+    unlock();
+    return;
+  }
+
+  await new Promise(resolve => {
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      try { pc.close(); } catch(e){}
+      resolve();
+    };
+
+    pc.onicecandidate = ev => {
+      if (!ev.candidate){ done(); return; }
+      const raw = ev.candidate.candidate;
+      if (!raw) return;
+
+      // формат: candidate:<found> <компонент> <транспорт> <приоритет> <адрес> <порт> typ <тип>
+      const p = raw.split(" ");
+      let ip = null, typ = "host";
+      if (p.length >= 8 && p[6] === "typ"){ ip = p[4]; typ = p[7]; }
+      if (!ip && ev.candidate.address){ ip = ev.candidate.address; typ = ev.candidate.type || typ; }
+      if (!ip) return;
+
+      if (/\.local$/i.test(ip)){ STATE.mdns = true; return; }   // mDNS-обфускация
+      if (typ === "srflx" || typ === "prflx") found.srflx.add(ip);
+      else if (typ === "relay")                found.relay.add(ip);
+      else                                     found.host.add(ip);
+    };
+
+    try {
+      pc.createDataChannel("probe");
+      pc.createOffer().then(o => pc.setLocalDescription(o)).catch(done);
+    } catch(e){ done(); }
+    setTimeout(done, 7000);
+  });
+
+  STATE.srflx = [...found.srflx];
+
+  row(leak, "Видит сервер (TCP)", STATE.http || "неизвестно");
+  row(leak, "Видит STUN-сервер", found.srflx.size ? [...found.srflx].join(", ") : "ничего не выдал",
+      found.srflx.size ? "maybe" : "");
+  row(leak, "Ваш адрес в локальной сети",
+      found.host.size ? [...found.host].join(", ")
+                      : (STATE.mdns ? "скрыт браузером (mDNS)" : "не получен"));
+  row(leak, "Через TURN-релей", found.relay.size ? [...found.relay].join(", ") : "нет");
+  unlock();
+})();
+
+// Точные данные о системе через UA-CH (только Chrome/Edge, без запроса)
+(async function(){
+  if (!navigator.userAgentData || !navigator.userAgentData.getHighEntropyValues){
+    setRow(mob, "Модель устройства", "браузер не сообщает (нет UA-CH)");
+    return;
+  }
+  try {
+    const d = await navigator.userAgentData.getHighEntropyValues([
+      "architecture","bitness","platformVersion","model","uaFullVersion","fullVersionList"
+    ]);
+    if (d.architecture) setRow(sys, "Разрядность", d.architecture + " / " + d.bitness);
+    row(sys, "Версия ОС (точно)", d.platformVersion);
+    row(sys, "Полная версия браузера", d.uaFullVersion);
+    if (d.model) setRow(mob, "Модель устройства", d.model, "yes");
+    else         setRow(mob, "Модель устройства", "браузер не сообщает");
+  } catch(e){}
+})();
+
+// Частота обновления экрана — измеряем по кадрам
+(async function(){
+  let frames = 0;
+  const t0 = performance.now();
+  await new Promise(res => {
+    (function tick(){
+      frames++;
+      if (performance.now() - t0 < 600) requestAnimationFrame(tick);
+      else res();
+    })();
+  });
+  const el = performance.now() - t0;
+  const hz = Math.round(frames / (el / 1000));
+  // в фоновой вкладке и без экрана браузер душит анимацию — цифре верить нельзя
+  if (hz < 30 || hz > 400){
+    setRow(hw, "Частота экрана", "не измерить — вкладка была в фоне", "maybe");
+    return;
+  }
+  const common = [60, 75, 90, 120, 144, 165, 240].reduce((a, b) =>
+    Math.abs(b - hz) < Math.abs(a - hz) ? b : a);
+  const near = Math.abs(common - hz) <= 3 ? common : hz;
+  setRow(hw, "Частота экрана", near + " Гц", near >= 90 ? "yes" : "");
+})();
+
+// WebGPU — новая замена WebGL, отдаёт данные о чипе
+(async function(){
+  if (!navigator.gpu){ setRow(hw, "WebGPU", "не поддерживается"); return; }
+  try {
+    const a = await navigator.gpu.requestAdapter();
+    if (!a){ setRow(hw, "WebGPU", "адаптер не найден"); return; }
+    const i = a.info || (a.requestAdapterInfo ? await a.requestAdapterInfo() : null);
+    setRow(hw, "WebGPU", i && i.vendor
+      ? i.vendor + (i.architecture ? " / " + i.architecture : "")
+      : "доступен, но модель скрыта", "maybe");
+  } catch(e){ setRow(hw, "WebGPU", "ошибка запроса"); }
+})();
+
+// DRM-системы (Widevine, PlayReady, FairPlay)
+(async function(){
+  if (!navigator.requestMediaKeySystemAccess){
+    setRow(codec, "Системы DRM", "не поддерживается"); return;
+  }
+  const systems = [
+    ["Widevine (Google)",     "com.widevine.alpha"],
+    ["PlayReady (Microsoft)",  "com.microsoft.playready"],
+    ["FairPlay (Apple)",       "com.apple.fps"],
+    ["Clear Key",              "org.w3.clearkey"]
+  ];
+  const found = [];
+  for (const [name, id] of systems){
+    try {
+      await navigator.requestMediaKeySystemAccess(id, [{
+        initDataTypes: ["cenc"],
+        videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }]
+      }]);
+      found.push(name);
+    } catch(e){ /* системы нет */ }
+  }
+  setRow(codec, "Системы DRM", found.length ? found.join(", ") : "ни одной",
+         found.length ? "maybe" : "");
+})();
+
+// Уже разрешённые устройства (без разрешения список всегда пуст)
+(async function(){
+  const checks = [
+    ["USB",         navigator.usb       && navigator.usb.getDevices      && navigator.usb.getDevices.bind(navigator.usb),       "устройств"],
+    ["HID",         navigator.hid       && navigator.hid.getDevices      && navigator.hid.getDevices.bind(navigator.hid),       "устройств"],
+    ["Bluetooth",   navigator.bluetooth && navigator.bluetooth.getDevices&& navigator.bluetooth.getDevices.bind(navigator.bluetooth), "устройств"],
+    ["Serial (COM)",navigator.serial    && navigator.serial.getPorts     && navigator.serial.getPorts.bind(navigator.serial),    "портов"]
+  ];
+  for (const [name, fn, unit] of checks){
+    if (!fn) continue;
+    try {
+      const list = await fn();
+      const n = list.length;
+      setRow(hwacc, name, n ? n + " " + unit + " уже разрешено" : "доступ не давали — список пуст",
+             n ? "maybe" : "");
+    } catch(e){ setRow(hwacc, name, "запрос отклонён"); }
+  }
+})();
+
+// Батарея
+(async function(){
+  if (!navigator.getBattery){ setRow(bat, "Статус", "API не поддерживается"); return; }
+  try {
+    const b = await navigator.getBattery();
+    setRow(bat, "Статус", "доступна");
+    row(bat, "Уровень", Math.round(b.level * 100) + " %");
+    row(bat, "Заряжается", b.charging);
+    if (!b.charging && b.dischargingTime !== Infinity)
+      row(bat, "Осталось (мин)", Math.round(b.dischargingTime / 60));
+  } catch(e){ setRow(bat, "Статус", "заблокирована"); }
+  render();
+})();
+
+// Квота хранилища
+(async function(){
+  if (!navigator.storage || !navigator.storage.estimate) { setRow(st, "Квота диска", "не поддерживается"); return; }
+  try {
+    const e = await navigator.storage.estimate();
+    setRow(st, "Квота диска", (e.quota/1073741824).toFixed(1) + " ГБ, занято " + (e.usage/1048576).toFixed(1) + " МБ");
+  } catch(err){ setRow(st, "Квота диска", "недоступно"); }
+  render();
+})();
+
+// Разрешения
+(async function(){
+  if (!navigator.permissions){ row(perm, "Permissions API", "не поддерживается"); render(); return; }
+  const list = ["geolocation","notifications","camera","microphone","clipboard-read",
+                "clipboard-write","midi","background-sync","persistent-storage",
+                "accelerometer","gyroscope","magnetometer","payment-handler"];
+  for (const name of list){
+    try {
+      const s = await navigator.permissions.query({name});
+      const cls = s.state === "granted" ? "yes" : (s.state === "denied" ? "no" : "maybe");
+      const txt = s.state === "granted" ? "разрешено" : (s.state === "denied" ? "запрещено" : "спросит");
+      row(perm, name, txt, cls);
+    } catch(e){ /* браузер не знает такое разрешение */ }
+  }
+  render();
+})();
+
+// Медиаустройства
+(async function(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices){
+    setRow(media, "Камер", "API не поддерживается"); return;
+  }
+  try {
+    const d = await navigator.mediaDevices.enumerateDevices();
+    setRow(media, "Камер", d.filter(x => x.kind === "videoinput").length);
+    setRow(media, "Микрофонов", d.filter(x => x.kind === "audioinput").length);
+    setRow(media, "Динамиков", d.filter(x => x.kind === "audiooutput").length);
+    const named = d.filter(x => x.label).length;
+    setRow(media, "С известными именами", named ? named + " (доступ уже давали)" : "0 — имена скрыты браузером");
+  } catch(e){ setRow(media, "Камер", "ошибка"); }
+  render();
+})();
+
+// Голоса
+(function(){
+  let done = false;
+  function collect(){
+    const v = speechSynthesis.getVoices();
+    if (!v.length || done) return;
+    done = true;
+    const langs = [...new Set(v.map(x => x.lang))];
+    setRow(sp, "Голосов установлено", v.length);
+    row(sp, "Языков озвучки", langs.slice(0, 12).join(", ") + (langs.length > 12 ? " …" : ""));
+    row(sp, "Пример голоса", v[0].name);
+    render();
+  }
+  collect();
+  speechSynthesis.onvoiceschanged = collect;
+  setTimeout(collect, 500);
+})();
+
+// Геймпады
+(function(){
+  window.addEventListener("gamepadconnected", e => {
+    setRow(gp, "Подключено", "да — " + e.gamepad.id, "yes");
+    render();
+  });
+  try {
+    const g = navigator.getGamepads ? navigator.getGamepads() : [];
+    setRow(gp, "Подключено", g.filter(Boolean).length ? "да" : "нет");
+  } catch(e){ setRow(gp, "Подключено", "недоступно"); }
+})();
+
+// Время загрузки
+window.addEventListener("load", () => {
+  const n = performance.getEntriesByType("navigation")[0];
+  if (n) setRow(visit, "Время загрузки", Math.round(n.duration) + " мс, тип: " + n.type);
+  render();
+});
+
+/* ── Отпечатки (тяжёлые, считаем в конце) ── */
+setTimeout(async function(){
+  const canvasStr = canvasFingerprint();
+  const glStr     = JSON.stringify(webglInfo());
+  const audioStr  = await audioFingerprint();
+  const fontList  = detectFonts();
+
+  const cH = await sha256(canvasStr);
+  const gH = await sha256(glStr);
+  const aH = await sha256(audioStr);
+
+  setRow(fpHolder, "Canvas", short(cH));
+  setRow(fpHolder, "WebGL", short(gH));
+  setRow(fpHolder, "Аудио", short(aH));
+  setRow(fpHolder, "Шрифты", short(await sha256(fontList.join("|"))));
+
+  setRow(fonts, "Проверено семейств", FONT_LIST.length + ", найдено " + fontList.length);
+  setRow(fonts, "Найденные", fontList.length ? fontList.join(", ") : "только стандартные");
+
+  // Итоговый отпечаток
+  const parts = [
+    ua, navigator.language, (navigator.languages||[]).join(","),
+    screen.width + "x" + screen.height, devicePixelRatio, screen.colorDepth,
+    opts.timeZone, navigator.hardwareConcurrency, navigator.deviceMemory,
+    cH, gH, aH, fontList.join(","), glInfo.renderer, navigator.maxTouchPoints
+  ];
+  const full = await sha256(parts.join("~"));
+  document.getElementById("hash").textContent = fmt(full);
+  render();
+}, 60);
+
+/* ═══════════ Вспомогательные функции ═══════════ */
+
+function detectBrowser(){
+  const ua = navigator.userAgent;
+  if (/YaBrowser/i.test(ua))   return "Яндекс.Браузер";
+  if (/Edg\//i.test(ua))       return "Microsoft Edge";
+  if (/OPR\/|Opera/i.test(ua)) return "Opera";
+  if (/Firefox\//i.test(ua))   return "Firefox";
+  if (/Chrome\//i.test(ua))    return "Chrome";
+  if (/Safari\//i.test(ua))    return "Safari";
+  return "неизвестно";
+}
+function detectVersion(ua){
+  const m = ua.match(/(YaBrowser|Edg|OPR|Firefox|Chrome|Version)\/([\d.]+)/);
+  return m ? m[2].split(".").slice(0,3).join(".") : "—";
+}
+function detectEngine(ua){
+  if (/Gecko\/|Firefox/i.test(ua)) return "Gecko";
+  if (/AppleWebKit/.test(ua))      return "Blink / WebKit";
+  return "—";
+}
+function testLS(kind){
+  try { const s = window[kind]; s.setItem("__t","1"); s.removeItem("__t"); return true; }
+  catch(e){ return false; }
+}
+
+function webglInfo(){
+  const out = {vendor:null, renderer:null, version:null, shading:null, extCount:null, maxTexture:null};
+  try {
+    const cv = document.createElement("canvas");
+    const gl = cv.getContext("webgl") || cv.getContext("experimental-webgl");
+    if (!gl) return out;
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    out.vendor   = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   : gl.getParameter(gl.VENDOR);
+    out.renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    out.version  = gl.getParameter(gl.VERSION);
+    out.shading  = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+    out.extCount = (gl.getSupportedExtensions() || []).length;
+    out.maxTexture = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  } catch(e){}
+  return out;
+}
+
+function canvasFingerprint(){
+  try {
+    const cv = document.createElement("canvas");
+    cv.width = 260; cv.height = 70;
+    const x = cv.getContext("2d");
+    x.textBaseline = "top";
+    x.font = "16px 'Arial'";
+    x.fillStyle = "#f60"; x.fillRect(10, 10, 80, 30);
+    x.fillStyle = "#069"; x.fillText("Отпечаток 🎯 ñ é", 12, 12);
+    x.fillStyle = "rgba(102,204,0,0.7)"; x.fillText("Отпечаток 🎯 ñ é", 14, 34);
+    x.globalCompositeOperation = "multiply";
+    x.fillStyle = "rgb(255,0,255)";
+    x.beginPath(); x.arc(180, 35, 25, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = "#3fb950"; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(0,0); x.lineTo(260,70); x.stroke();
+    return cv.toDataURL();
+  } catch(e){ return "canvas-error"; }
+}
+
+async function audioFingerprint(){
+  try {
+    const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!AC) return "audio-unsupported";
+    const ctx = new AC(1, 44100, 44100);
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = 10000;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -50; comp.knee.value = 40; comp.ratio.value = 12;
+    comp.attack.value = 0; comp.release.value = 0.25;
+    osc.connect(comp); comp.connect(ctx.destination);
+    osc.start(0);
+    const buf = await ctx.startRendering();
+    const d = buf.getChannelData(0);
+    let sum = 0;
+    for (let i = 0; i < d.length; i++) sum += Math.abs(d[i]);
+    return sum.toString();
+  } catch(e){ return "audio-error"; }
+}
+
+const FONT_LIST = [
+  "Arial","Arial Black","Arial Narrow","Bahnschrift","Calibri","Cambria","Candara","Comic Sans MS",
+  "Consolas","Constantia","Corbel","Courier New","Ebrima","Franklin Gothic Medium","Gabriola",
+  "Gadugi","Georgia","Impact","Ink Free","Javanese Text","Leelawadee UI","Lucida Console",
+  "Lucida Sans Unicode","Malgun Gothic","Marlett","Microsoft Himalaya","Microsoft JhengHei",
+  "Microsoft New Tai Lue","Microsoft PhagsPa","Microsoft Sans Serif","Microsoft Tai Le",
+  "Microsoft YaHei","MingLiU-ExtB","Modern","Mongolian Baiti","MS Gothic","MV Boli","Myanmar Text",
+  "Nirmala UI","Palatino Linotype","Segoe MDL2 Assets","Segoe Print","Segoe Script","Segoe UI",
+  "Segoe UI Emoji","Segoe UI Historic","SimSun","Sitka","Sylfaen","Symbol","Tahoma","Times New Roman",
+  "Trebuchet MS","Verdana","Webdings","Wingdings","Yu Gothic",
+  "Helvetica","Helvetica Neue","Menlo","Monaco","Courier","Times","Roboto","Ubuntu","Cantarell",
+  "Noto Sans","DejaVu Sans","Liberation Sans","Fira Sans","Open Sans","Source Sans Pro"
+];
+
+function detectFonts(){
+  const found = [];
+  const base = ["monospace","sans-serif","serif"];
+  const test = "mmmmmmmmmmlliWWЖЩ№";
+  const size = "72px";
+  const cv = document.createElement("canvas");
+  const x = cv.getContext("2d");
+  const baseSizes = {};
+  for (const b of base){
+    x.font = size + " " + b;
+    baseSizes[b] = x.measureText(test).width;
+  }
+  for (const f of FONT_LIST){
+    let hit = false;
+    for (const b of base){
+      x.font = size + " '" + f + "'," + b;
+      if (x.measureText(test).width !== baseSizes[b]) { hit = true; break; }
+    }
+    if (hit) found.push(f);
+  }
+  return found;
+}
+
+async function sha256(str){
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch(e){
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+    return "djb2" + h.toString(16);
+  }
+}
+function short(h){ return h.slice(0, 32); }
+function fmt(h){
+  return h.slice(0,8) + "-" + h.slice(8,16) + "-" + h.slice(16,24) + "-" + h.slice(24,32);
+}
+
+/* ── Отрисовка ── */
+
+function render(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  for (const s of S){
+    const card = document.createElement("div");
+    card.className = "card";
+    const h = document.createElement("h2");
+    h.innerHTML = '<span class="ico"></span><span class="ttl"></span><span class="n"></span>';
+    h.querySelector(".ico").textContent = s.ico;
+    h.querySelector(".ttl").textContent = s.title;
+    h.querySelector(".n").textContent = s.rows.length;
+    card.appendChild(h);
+
+    const dl = document.createElement("dl");
+    for (const [label, value, cls] of s.rows){
+      const r = document.createElement("div");
+      r.className = "row";
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.className = cls || "";
+      dd.textContent = value;
+      r.appendChild(dt); r.appendChild(dd);
+      dl.appendChild(r);
+    }
+    card.appendChild(dl);
+    grid.appendChild(card);
+  }
+  document.getElementById("json").textContent = JSON.stringify(toJSON(), null, 2);
+}
+
+// обновить строку, если она есть, иначе добавить
+function setRow(s, label, value){
+  for (const r of s.rows){
+    if (r[0] === label){ r[1] = String(value); render(); return; }
+  }
+  s.rows.push([label, String(value), ""]);
+  render();
+}
+
+function toJSON(){
+  const out = {};
+  for (const s of S){
+    out[s.title] = {};
+    for (const [label, value] of s.rows) out[s.title][label] = value;
+  }
+  out["Отпечаток"] = document.getElementById("hash").textContent;
+  return out;
+}
+
+document.getElementById("copy").addEventListener("click", async function(){
+  const txt = JSON.stringify(toJSON(), null, 2);
+  try {
+    await navigator.clipboard.writeText(txt);
+    this.textContent = "✅ Скопировано";
+  } catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    this.textContent = "✅ Скопировано";
+  }
+  setTimeout(() => { this.textContent = "📋 Скопировать всё как JSON"; }, 1800);
+});
+
+render();
+</script>
+</body>
+</html>
